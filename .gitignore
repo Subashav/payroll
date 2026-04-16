@@ -1,0 +1,7 @@
+__pycache__/
+*.db
+*.sqlite
+.venv/
+venv/
+.env
+check_db.py

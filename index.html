@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Pro | Internal Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .keka-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .sidebar-item-active { border-right: 3px solid #3b82f6; background: #eff6ff; color: #3b82f6; }
+        .tab-active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i data-lucide="wallet" class="text-white w-5 h-5"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">Payroll<span class="text-blue-600">Pro</span></h1>
+        </div>
+        <div class="flex items-center gap-6 text-sm font-medium text-slate-500">
+            <button onclick="switchTab('employees')" id="nav-employees" class="tab-active py-2">Employees</button>
+            <button onclick="switchTab('payroll')" id="nav-payroll" class="py-2">Run Payroll</button>
+            <button onclick="switchTab('history')" id="nav-history" class="py-2">History</button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-8">
+        
+        <!-- Tab: Employees -->
+        <section id="tab-employees" class="space-y-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-semibold">Employee Directory</h2>
+                    <p class="text-slate-500 text-sm">Manage your team and their fixed compensation details.</p>
+                </div>
+                <button onclick="openModal('employeeModal')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Add Employee
+                </button>
+            </div>
+
+            <div class="keka-card overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4">ID</th>
+                            <th class="px-6 py-4">Full Name</th>
+                            <th class="px-6 py-4">Monthly Salary</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employee-list" class="divide-y divide-slate-100 text-sm">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Tab: Payroll -->
+        <section id="tab-payroll" class="hidden space-y-6">
+            <div>
+                <h2 class="text-2xl font-semibold">Run Payroll</h2>
+                <p class="text-slate-500 text-sm">Calculate monthly payouts based on actual days worked.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Calculation Form -->
+                <div class="md:col-span-1 border-r border-slate-200 pr-8">
+                    <form id="payroll-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Select Employee</label>
+                            <select id="pr-employee-select" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Total Days in Month</label>
+                            <input type="number" id="pr-total-days" value="30" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Days Worked</label>
+                            <input type="number" id="pr-worked-days" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Pay Period</label>
+                            <input type="month" id="pr-month" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-900 text-white py-2 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors">Calculate Payout</button>
+                    </form>
+                </div>
+
+                <!-- Calculation Result -->
+                <div class="md:col-span-2 space-y-4" id="payroll-result-container">
+                    <div class="h-full flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl p-12" id="no-result-placeholder">
+                        <i data-lucide="calculator" class="w-12 h-12 mb-4 opacity-20"></i>
+                        <p class="text-sm">Select an employee and enter days to see the breakdown.</p>
+                    </div>
+
+                    <div id="calculation-result" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div class="keka-card p-6 bg-blue-50/50 border-blue-100">
+                            <div class="flex justify-between items-start mb-6">
+                                <div>
+                                    <p class="text-sm text-blue-600 font-semibold mb-1" id="res-month-label"></p>
+                                    <h3 class="text-2xl font-bold text-slate-900" id="res-employee-name"></h3>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xs text-slate-500 font-medium uppercase">Net Payable</p>
+                                    <p class="text-3xl font-extrabold text-blue-600" id="res-net-salary"></p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-x-12 gap-y-4 text-sm">
+                                <div class="flex justify-between border-b border-blue-100 pb-2">
+                                    <span class="text-slate-500">Basic Pay (40%)</span>
+                                    <span class="font-semibold" id="res-basic"></span>
+                                </div>
+                                <div class="flex justify-between border-b border-blue-100 pb-2">
+                                    <span class="text-slate-500">HRA (20%)</span>
+                                    <span class="font-semibold" id="res-hra"></span>
+                                </div>
+                                <div class="flex justify-between border-b border-blue-100 pb-2">
+                                    <span class="text-slate-500">Special Allowance (25%)</span>
+                                    <span class="font-semibold" id="res-special"></span>
+                                </div>
+                                <div class="flex justify-between border-b border-blue-100 pb-2">
+                                    <span class="text-slate-500">Transport (10%)</span>
+                                    <span class="font-semibold" id="res-transport"></span>
+                                </div>
+                                <div class="flex justify-between border-b border-blue-100 pb-2">
+                                    <span class="text-slate-500">Medical (5%)</span>
+                                    <span class="font-semibold" id="res-medical"></span>
+                                </div>
+                                <div class="flex justify-between border-b border-blue-100 pb-2">
+                                    <span class="text-slate-500">Accuracy Score</span>
+                                    <span class="text-green-600 font-bold" id="res-ratio"></span>
+                                </div>
+                            </div>
+
+                            <div class="mt-8 flex gap-4">
+                                <div class="flex-1 bg-white p-4 rounded-lg border border-slate-200">
+                                    <p class="text-xs text-slate-400 font-semibold uppercase mb-1">Loss of Pay</p>
+                                    <p class="text-lg font-bold text-red-500" id="res-lop"></p>
+                                </div>
+                                <div class="flex-1 bg-white p-4 rounded-lg border border-slate-200">
+                                    <p class="text-xs text-slate-400 font-semibold uppercase mb-1">Worked Days</p>
+                                    <p class="text-lg font-bold text-slate-700" id="res-days-display"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: History -->
+        <section id="tab-history" class="hidden space-y-6">
+            <div>
+                <h2 class="text-2xl font-semibold">Payroll History</h2>
+                <p class="text-slate-500 text-sm">Review past calculations and payout summaries.</p>
+            </div>
+
+            <div class="keka-card overflow-hidden">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-slate-50 text-slate-500 text-xs font-semibold uppercase">
+                        <tr>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4">Employee</th>
+                            <th class="px-6 py-4">Period</th>
+                            <th class="px-6 py-4">Days</th>
+                            <th class="px-6 py-4">Net Salary</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-list" class="divide-y divide-slate-100">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Add/Edit Employee -->
+    <div id="employeeModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-slate-700" id="modalTitle">Add Employee</h3>
+                <button onclick="closeModal('employeeModal')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="employee-form" class="p-6 space-y-4">
+                <input type="hidden" id="emp-id">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Full Name</label>
+                    <input type="text" id="emp-name" class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="John Doe" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Monthly Gross Salary</label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2 text-slate-400">$</span>
+                        <input type="number" id="emp-salary" class="w-full border border-slate-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="50000" required>
+                    </div>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" onclick="closeModal('employeeModal')" class="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">Save Details</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let employees = [];
+
+        // App Initialization
+        window.onload = () => {
+            fetchEmployees();
+            lucide.createIcons();
+        };
+
+        // Navigation
+        function switchTab(tab) {
+            ['employees', 'payroll', 'history'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).classList.remove('tab-active');
+            });
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`nav-${tab}`).classList.add('tab-active');
+            
+            if(tab === 'history') fetchHistory();
+            if(tab === 'payroll') populateEmployeeSelect();
+        }
+
+        // Employee Management
+        async function fetchEmployees() {
+            const res = await fetch(`${API_BASE}/employees/`);
+            employees = await res.json();
+            renderEmployees();
+            populateEmployeeSelect();
+        }
+
+        function renderEmployees() {
+            const list = document.getElementById('employee-list');
+            list.innerHTML = employees.map(emp => `
+                <tr class="hover:bg-slate-50 transition-colors group">
+                    <td class="px-6 py-4 font-mono text-slate-400">#${emp.id}</td>
+                    <td class="px-6 py-4 font-semibold">${emp.name}</td>
+                    <td class="px-6 py-4">$${emp.monthly_salary.toLocaleString()}</td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="editEmployee(${emp.id})" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                            <button onclick="deleteEmployee(${emp.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        document.getElementById('employee-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('emp-id').value;
+            const data = {
+                name: document.getElementById('emp-name').value,
+                monthly_salary: parseFloat(document.getElementById('emp-salary').value)
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `${API_BASE}/employees/${id}` : `${API_BASE}/employees/`;
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                closeModal('employeeModal');
+                fetchEmployees();
+                e.target.reset();
+            }
+        };
+
+        async function deleteEmployee(id) {
+            if(confirm('Are you sure you want to remove this employee?')) {
+                await fetch(`${API_BASE}/employees/${id}`, { method: 'DELETE' });
+                fetchEmployees();
+            }
+        }
+
+        function editEmployee(id) {
+            const emp = employees.find(e => e.id === id);
+            document.getElementById('emp-id').value = emp.id;
+            document.getElementById('emp-name').value = emp.name;
+            document.getElementById('emp-salary').value = emp.monthly_salary;
+            document.getElementById('modalTitle').innerText = 'Edit Employee';
+            openModal('employeeModal');
+        }
+
+        // Payroll Calculation
+        function populateEmployeeSelect() {
+            const select = document.getElementById('pr-employee-select');
+            select.innerHTML = '<option value="">Select an employee...</option>' + 
+                employees.map(emp => `<option value="${emp.id}">${emp.name}</option>`).join('');
+        }
+
+        document.getElementById('payroll-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const empId = document.getElementById('pr-employee-select').value;
+            const data = {
+                employee_id: parseInt(empId),
+                total_days: parseInt(document.getElementById('pr-total-days').value),
+                worked_days: parseInt(document.getElementById('pr-worked-days').value),
+                month_year: document.getElementById('pr-month').value
+            };
+
+            const res = await fetch(`${API_BASE}/payroll/calculate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                const record = await res.json();
+                displayResult(record);
+            }
+        };
+
+        function displayResult(res) {
+            document.getElementById('no-result-placeholder').classList.add('hidden');
+            document.getElementById('calculation-result').classList.remove('hidden');
+            
+            document.getElementById('res-month-label').innerText = res.month_year;
+            document.getElementById('res-employee-name').innerText = res.employee_name;
+            document.getElementById('res-net-salary').innerText = '$' + res.net_salary.toLocaleString();
+            
+            document.getElementById('res-basic').innerText = '$' + res.basic.toLocaleString();
+            document.getElementById('res-hra').innerText = '$' + res.hra.toLocaleString();
+            document.getElementById('res-special').innerText = '$' + res.special.toLocaleString();
+            document.getElementById('res-transport').innerText = '$' + res.transport.toLocaleString();
+            document.getElementById('res-medical').innerText = '$' + res.medical.toLocaleString();
+            
+            const ratio = (res.worked_days / res.total_days * 100).toFixed(1);
+            document.getElementById('res-ratio').innerText = ratio + '%';
+            
+            const emp = employees.find(e => e.id === res.employee_id);
+            const lop = emp.monthly_salary - res.net_salary;
+            document.getElementById('res-lop').innerText = '$' + lop.toLocaleString();
+            document.getElementById('res-days-display').innerText = `${res.worked_days} / ${res.total_days}`;
+        }
+
+        // History
+        async function fetchHistory() {
+            const res = await fetch(`${API_BASE}/payroll/history`);
+            const history = await res.json();
+            const list = document.getElementById('history-list');
+            list.innerHTML = history.map(h => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-6 py-4 text-slate-400 text-xs">${new Date(h.created_at).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 font-medium">${h.employee_name}</td>
+                    <td class="px-6 py-4 font-mono text-xs uppercase">${h.month_year}</td>
+                    <td class="px-6 py-4">${h.worked_days}/${h.total_days}</td>
+                    <td class="px-6 py-4 font-bold text-blue-600">$${h.net_salary.toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Modal Utilities
+        function openModal(id) { 
+            if(id === 'employeeModal' && !document.getElementById('emp-id').value) {
+                document.getElementById('modalTitle').innerText = 'Add Employee';
+            }
+            document.getElementById(id).classList.remove('hidden'); 
+        }
+        function closeModal(id) { 
+            document.getElementById(id).classList.add('hidden'); 
+            if(id === 'employeeModal') {
+                document.getElementById('emp-id').value = '';
+                document.getElementById('employee-form').reset();
+            }
+        }
+    </script>
+</body>
+</html>

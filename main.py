@@ -1,0 +1,145 @@
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import SQLModel, Field, create_engine, Session, select
+from typing import List, Optional
+from pydantic import BaseModel
+import datetime
+
+# --- Models ---
+class Employee(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    monthly_salary: float
+
+class PayrollRecord(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    employee_id: int
+    employee_name: str
+    month_year: str # e.g., "April 2026"
+    total_days: int
+    worked_days: int
+    basic: float
+    hra: float
+    special: float
+    transport: float
+    medical: float
+    net_salary: float
+    created_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+
+# --- Schemas ---
+class PayrollCalculateRequest(BaseModel):
+    employee_id: int
+    total_days: int = 30
+    worked_days: int
+    month_year: str
+
+# --- Database Setup ---
+sqlite_file_name = "payroll.db"
+sqlite_url = f"sqlite:///{sqlite_file_name}"
+engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+
+def create_db_and_tables():
+    SQLModel.metadata.create_all(engine)
+
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+# --- FastAPI App ---
+app = FastAPI(title="Simple Payroll System")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+
+@app.get("/")
+def read_root():
+    return FileResponse("index.html")
+
+# --- Routes: Employees ---
+
+@app.post("/employees/", response_model=Employee)
+def create_employee(employee: Employee, session: Session = Depends(get_session)):
+    session.add(employee)
+    session.commit()
+    session.refresh(employee)
+    return employee
+
+@app.get("/employees/", response_model=List[Employee])
+def read_employees(session: Session = Depends(get_session)):
+    return session.exec(select(Employee)).all()
+
+@app.put("/employees/{employee_id}", response_model=Employee)
+def update_employee(employee_id: int, employee_data: Employee, session: Session = Depends(get_session)):
+    db_employee = session.get(Employee, employee_id)
+    if not db_employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    db_employee.name = employee_data.name
+    db_employee.monthly_salary = employee_data.monthly_salary
+    session.add(db_employee)
+    session.commit()
+    session.refresh(db_employee)
+    return db_employee
+
+@app.delete("/employees/{employee_id}")
+def delete_employee(employee_id: int, session: Session = Depends(get_session)):
+    employee = session.get(Employee, employee_id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    session.delete(employee)
+    session.commit()
+    return {"ok": True}
+
+# --- Routes: Payroll ---
+
+@app.post("/payroll/calculate", response_model=PayrollRecord)
+def calculate_payroll(req: PayrollCalculateRequest, session: Session = Depends(get_session)):
+    employee = session.get(Employee, req.employee_id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Logic provided by user
+    payable_ratio = req.worked_days / req.total_days
+    
+    basic = employee.monthly_salary * 0.40 * payable_ratio
+    hra = employee.monthly_salary * 0.20 * payable_ratio
+    special = employee.monthly_salary * 0.25 * payable_ratio
+    transport = employee.monthly_salary * 0.10 * payable_ratio
+    medical = employee.monthly_salary * 0.05 * payable_ratio
+    net_salary = employee.monthly_salary * payable_ratio
+    
+    record = PayrollRecord(
+        employee_id=employee.id,
+        employee_name=employee.name,
+        month_year=req.month_year,
+        total_days=req.total_days,
+        worked_days=req.worked_days,
+        basic=round(basic, 2),
+        hra=round(hra, 2),
+        special=round(special, 2),
+        transport=round(transport, 2),
+        medical=round(medical, 2),
+        net_salary=round(net_salary, 2)
+    )
+    
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return record
+
+@app.get("/payroll/history", response_model=List[PayrollRecord])
+def get_payroll_history(session: Session = Depends(get_session)):
+    return session.exec(select(PayrollRecord).order_by(PayrollRecord.created_at.desc())).all()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
