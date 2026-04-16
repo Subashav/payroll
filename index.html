@@ -233,12 +233,20 @@
 
 
     <script>
-        const API_BASE = window.location.origin;
+        // Local Storage Management (Standardizes data if backend is missing)
+        const Storage = {
+            getEmployees: () => JSON.parse(localStorage.getItem('monarch_employees') || '[]'),
+            saveEmployees: (data) => localStorage.setItem('monarch_employees', JSON.stringify(data)),
+            getHistory: () => JSON.parse(localStorage.getItem('monarch_history') || '[]'),
+            saveHistory: (data) => localStorage.setItem('monarch_history', JSON.stringify(data))
+        };
+
         let employees = [];
+        let isLocalMode = false;
 
         // App Initialization
-        window.onload = () => {
-            fetchEmployees();
+        window.onload = async () => {
+            await fetchEmployees();
             lucide.createIcons();
         };
 
@@ -259,14 +267,16 @@
         async function fetchEmployees() {
             try {
                 const res = await fetch(`${API_BASE}/employees/`);
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                if (!res.ok) throw new Error();
                 employees = await res.json();
-                renderEmployees();
-                populateEmployeeSelect();
+                isLocalMode = false;
             } catch (error) {
-                console.error("Failed to fetch employees:", error);
-                // Only alert if it's not a background fetch or if we want user to know
+                console.log("Switching to Local Mode (Storage: Browser)");
+                employees = Storage.getEmployees();
+                isLocalMode = true;
             }
+            renderEmployees();
+            populateEmployeeSelect();
         }
 
         function renderEmployees() {
@@ -302,26 +312,39 @@
                     monthly_salary: parseFloat(document.getElementById('emp-salary').value)
                 };
 
-                const method = id ? 'PUT' : 'POST';
-                const url = id ? `${API_BASE}/employees/${id}` : `${API_BASE}/employees/`;
-
-                const res = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (res.ok) {
+                if (isLocalMode) {
+                    if (id) {
+                        const index = employees.findIndex(e => e.id == id);
+                        employees[index] = { ...data, id: parseInt(id) };
+                    } else {
+                        const newId = employees.length > 0 ? Math.max(...employees.map(e => e.id)) + 1 : 1;
+                        employees.push({ ...data, id: newId });
+                    }
+                    Storage.saveEmployees(employees);
                     closeModal('employeeModal');
-                    await fetchEmployees();
-                    e.target.reset();
+                    renderEmployees();
+                    populateEmployeeSelect();
                 } else {
-                    const errorData = await res.json();
-                    alert(`Error: ${errorData.detail || 'Failed to save employee'}`);
+                    const method = id ? 'PUT' : 'POST';
+                    const url = id ? `${API_BASE}/employees/${id}` : `${API_BASE}/employees/`;
+                    const res = await fetch(url, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (res.ok) {
+                        closeModal('employeeModal');
+                        await fetchEmployees();
+                    } else {
+                        const errorData = await res.json();
+                        alert(`Error: ${errorData.detail || 'Failed to save'}`);
+                    }
                 }
+                e.target.reset();
             } catch (error) {
                 console.error("Save error:", error);
-                alert("Connection failed. Is the backend server running?");
+                if (!isLocalMode) alert("Backend error. Local changes may not persist.");
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerText = originalBtnText;
@@ -342,17 +365,24 @@
                     confirmBtn.disabled = true;
                     confirmBtn.innerText = 'Deleting...';
                     
-                    const res = await fetch(`${API_BASE}/employees/${id}`, { method: 'DELETE' });
-                    if (res.ok) {
+                    if (isLocalMode) {
+                        employees = employees.filter(e => e.id != id);
+                        Storage.saveEmployees(employees);
                         closeModal('confirmModal');
-                        await fetchEmployees();
+                        renderEmployees();
+                        populateEmployeeSelect();
                     } else {
-                        const errorData = await res.json();
-                        alert(`Error: ${errorData.detail || 'Failed to delete'}`);
+                        const res = await fetch(`${API_BASE}/employees/${id}`, { method: 'DELETE' });
+                        if (res.ok) {
+                            closeModal('confirmModal');
+                            await fetchEmployees();
+                        } else {
+                            const errorData = await res.json();
+                            alert(`Error: ${errorData.detail || 'Failed to delete'}`);
+                        }
                     }
                 } catch (error) {
                     console.error("Delete error:", error);
-                    alert("Connection failed. Is the backend server running?");
                 } finally {
                     confirmBtn.disabled = false;
                     confirmBtn.innerText = originalText;
@@ -393,22 +423,41 @@
                     month_year: document.getElementById('pr-month').value
                 };
 
-                const res = await fetch(`${API_BASE}/payroll/calculate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (res.ok) {
-                    const record = await res.json();
+                if (isLocalMode) {
+                    const emp = employees.find(e => e.id == data.employee_id);
+                    const payable_ratio = data.worked_days / data.total_days;
+                    const record = {
+                        ...data,
+                        employee_name: emp.name,
+                        basic: Math.round(emp.monthly_salary * 0.40 * payable_ratio * 100) / 100,
+                        hra: Math.round(emp.monthly_salary * 0.20 * payable_ratio * 100) / 100,
+                        special: Math.round(emp.monthly_salary * 0.25 * payable_ratio * 100) / 100,
+                        transport: Math.round(emp.monthly_salary * 0.10 * payable_ratio * 100) / 100,
+                        medical: Math.round(emp.monthly_salary * 0.05 * payable_ratio * 100) / 100,
+                        net_salary: Math.round(emp.monthly_salary * payable_ratio * 100) / 100,
+                        created_at: new Date().toISOString()
+                    };
+                    const history = Storage.getHistory();
+                    history.unshift(record);
+                    Storage.saveHistory(history);
                     displayResult(record);
                 } else {
-                    const errorData = await res.json();
-                    alert(`Error: ${errorData.detail || 'Failed to calculate payroll'}`);
+                    const res = await fetch(`${API_BASE}/payroll/calculate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (res.ok) {
+                        const record = await res.json();
+                        displayResult(record);
+                    } else {
+                        const errorData = await res.json();
+                        alert(`Error: ${errorData.detail || 'Failed to calculate'}`);
+                    }
                 }
             } catch (error) {
                 console.error("Calculation error:", error);
-                alert("Connection failed. Is the backend server running?");
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerText = originalBtnText;
@@ -441,9 +490,14 @@
         // History
         async function fetchHistory() {
             try {
-                const res = await fetch(`${API_BASE}/payroll/history`);
-                if (!res.ok) throw new Error("Failed to fetch history");
-                const history = await res.json();
+                let history = [];
+                if (isLocalMode) {
+                    history = Storage.getHistory();
+                } else {
+                    const res = await fetch(`${API_BASE}/payroll/history`);
+                    if (!res.ok) throw new Error();
+                    history = await res.json();
+                }
                 const list = document.getElementById('history-list');
                 list.innerHTML = history.map(h => `
                     <tr class="hover:bg-white/5 transition-all">
