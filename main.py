@@ -6,6 +6,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 import datetime
 import logging
+import os
 from contextlib import asynccontextmanager
 
 # Setup logging
@@ -41,9 +42,15 @@ class PayrollCalculateRequest(BaseModel):
     month_year: str
 
 # --- Database Setup ---
-sqlite_file_name = "payroll.db"
-sqlite_url = f"sqlite:///{sqlite_file_name}"
-engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
+# Use Vercel Postgres if available, otherwise fallback to local SQLite
+DATABASE_URL = os.environ.get("POSTGRES_URL", "sqlite:///payroll.db")
+
+# Fix for Vercel/Postgres (SQLAlchemy requires postgresql:// instead of postgres://)
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -73,7 +80,9 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return FileResponse("index.html")
+    # Use absolute path for Vercel stability
+    path = os.path.join(os.path.dirname(__file__), "index.html")
+    return FileResponse(path)
 
 # --- Routes: Employees ---
 
