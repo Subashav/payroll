@@ -5,6 +5,12 @@ from sqlmodel import SQLModel, Field, create_engine, Session, select
 from typing import List, Optional
 from pydantic import BaseModel
 import datetime
+import logging
+from contextlib import asynccontextmanager
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # --- Models ---
 class Employee(SQLModel, table=True):
@@ -42,12 +48,21 @@ engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    logger.info("Initializing database...")
+    create_db_and_tables()
+    yield
+    # Shutdown logic
+    logger.info("Shutting down...")
+
 def get_session():
     with Session(engine) as session:
         yield session
 
 # --- FastAPI App ---
-app = FastAPI(title="Simple Payroll System")
+app = FastAPI(title="Monarch Payroll System", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,10 +70,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-def on_startup():
-    create_db_and_tables()
 
 @app.get("/")
 def read_root():
@@ -68,6 +79,7 @@ def read_root():
 
 @app.post("/employees/", response_model=Employee)
 def create_employee(employee: Employee, session: Session = Depends(get_session)):
+    logger.info(f"Adding employee: {employee.name}")
     session.add(employee)
     session.commit()
     session.refresh(employee)
