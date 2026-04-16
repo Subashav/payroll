@@ -20,14 +20,14 @@
         input:focus, select:focus { border-color: #6366f1 !important; ring-color: #6366f1 !important; }
     </style>
 </head>
-<body class="text-slate-800">
+<body class="text-white">
 
     <!-- Navigation Header -->
     <header class="bg-black/80 backdrop-blur-md border-b border-white/10 px-8 py-4 flex justify-between items-center sticky top-0 z-10">
         <div class="flex items-center gap-3">
             <h1 class="text-2xl font-black tracking-tighter text-white uppercase italic">Monarch</h1>
         </div>
-        <div class="flex items-center gap-8 text-sm font-bold text-slate-400">
+        <div class="flex items-center gap-8 text-sm font-bold text-slate-300">
             <button onclick="switchTab('employees')" id="nav-employees" class="tab-active py-2 hover:text-white transition-colors">Employees</button>
             <button onclick="switchTab('payroll')" id="nav-payroll" class="py-2 hover:text-white transition-colors">Run Payroll</button>
             <button onclick="switchTab('history')" id="nav-history" class="py-2 hover:text-white transition-colors">History</button>
@@ -68,8 +68,8 @@
         <!-- Tab: Payroll -->
         <section id="tab-payroll" class="hidden space-y-6">
             <div>
-                <h2 class="text-2xl font-semibold">Run Payroll</h2>
-                <p class="text-slate-500 text-sm">Calculate monthly payouts based on actual days worked.</p>
+                <h2 class="text-3xl font-bold text-white">Run Payroll</h2>
+                <p class="text-slate-400 text-sm mt-1 font-medium">Calculate monthly payouts based on actual days worked.</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -77,20 +77,20 @@
                 <div class="md:col-span-1 border-r border-slate-200 pr-8">
                     <form id="payroll-form" class="space-y-4">
                         <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Select Employee</label>
-                            <select id="pr-employee-select" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required></select>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Select Member</label>
+                            <select id="pr-employee-select" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required></select>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Total Days in Month</label>
-                            <input type="number" id="pr-total-days" value="30" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Days in Month</label>
+                            <input type="number" id="pr-total-days" value="30" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Days Worked</label>
-                            <input type="number" id="pr-worked-days" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Days Worked</label>
+                            <input type="number" id="pr-worked-days" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required>
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Pay Period</label>
-                            <input type="month" id="pr-month" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pay Period</label>
+                            <input type="month" id="pr-month" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required>
                         </div>
                         <button type="submit" class="w-full bg-slate-900 text-white py-2 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors">Calculate Payout</button>
                     </form>
@@ -162,8 +162,8 @@
         <!-- Tab: History -->
         <section id="tab-history" class="hidden space-y-6">
             <div>
-                <h2 class="text-2xl font-semibold">Payroll History</h2>
-                <p class="text-slate-500 text-sm">Review past calculations and payout summaries.</p>
+                <h2 class="text-3xl font-bold text-white">Payroll History</h2>
+                <p class="text-slate-400 text-sm mt-1 font-medium">Review past calculations and payout summaries.</p>
             </div>
 
             <div class="keka-card overflow-hidden">
