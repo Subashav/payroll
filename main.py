@@ -42,14 +42,20 @@ class PayrollCalculateRequest(BaseModel):
     month_year: str
 
 # --- Database Setup ---
-# Use Vercel Postgres if available, otherwise fallback to local SQLite
-DATABASE_URL = os.environ.get("POSTGRES_URL", "sqlite:///payroll.db")
+# Support common production DB variables (Vercel Postgres, Supabase, etc.)
+DATABASE_URL = (
+    os.environ.get("POSTGRES_URL") or 
+    os.environ.get("DATABASE_URL") or 
+    os.environ.get("SUPABASE_URL") or 
+    "sqlite:///payroll.db"
+)
 
-# Fix for Vercel/Postgres (SQLAlchemy requires postgresql:// instead of postgres://)
+# Fix for Postgres variants (SQLAlchemy requires postgresql:// instead of postgres://)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+
 
 
 def create_db_and_tables():
