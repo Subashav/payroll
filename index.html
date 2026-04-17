@@ -86,89 +86,40 @@
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <!-- Calculation Form -->
-                <div class="md:col-span-1 border-r border-slate-200 pr-8">
-                    <form id="payroll-form" class="space-y-4">
-                        <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Select Member</label>
-                            <select id="pr-employee-select" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required></select>
+            <div class="keka-card overflow-hidden border-white/5">
+                <div class="p-6 border-b border-white/5 bg-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="space-y-1">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Pay Period</label>
+                            <input type="month" id="pr-month" class="bg-black border border-white/10 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48" required>
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Days in Month</label>
-                            <input type="number" id="pr-total-days" value="30" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                        <div class="space-y-1">
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Days in Month</label>
+                            <input type="number" id="pr-total-days" readonly class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-slate-400 outline-none w-24" value="30">
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Days Worked</label>
-                            <input type="number" id="pr-worked-days" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pay Period</label>
-                            <input type="month" id="pr-month" class="w-full border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" required>
-                        </div>
-                        <button type="submit" class="w-full bg-slate-900 text-white py-2 rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors">Calculate Payout</button>
-                    </form>
+                    </div>
+                    <button onclick="runBulkPayroll()" id="bulk-btn" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl text-sm font-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-indigo-600/30 active:scale-95">
+                        <i data-lucide="zap" class="w-5 h-5"></i> Generate All Pay Slips
+                    </button>
                 </div>
 
-                <!-- Calculation Result -->
-                <div class="md:col-span-2 space-y-4" id="payroll-result-container">
-                    <div class="h-full flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl p-12" id="no-result-placeholder">
-                        <i data-lucide="calculator" class="w-12 h-12 mb-4 opacity-20"></i>
-                        <p class="text-sm">Select an employee and enter days to see the breakdown.</p>
-                    </div>
-
-                    <div id="calculation-result" class="hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div class="keka-card p-8 border-white/10">
-                            <div class="flex justify-between items-start mb-8">
-                                <div>
-                                    <p class="text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1" id="res-month-label"></p>
-                                    <h3 class="text-3xl font-black text-white" id="res-employee-name"></h3>
-                                </div>
-                                <div class="text-right">
-                                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Net Payout</p>
-                                    <p class="text-4xl font-black text-white tracking-tighter" id="res-net-salary"></p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-x-12 gap-y-6 text-sm">
-                                <div class="flex justify-between border-b border-white/5 pb-3">
-                                    <span class="text-slate-500 font-medium">Basic Pay (40%)</span>
-                                    <span class="font-bold text-white" id="res-basic"></span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/5 pb-3">
-                                    <span class="text-slate-500 font-medium">HRA (20%)</span>
-                                    <span class="font-bold text-white" id="res-hra"></span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/5 pb-3">
-                                    <span class="text-slate-500 font-medium">Special Allowance (25%)</span>
-                                    <span class="font-bold text-white" id="res-special"></span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/5 pb-3">
-                                    <span class="text-slate-500 font-medium">Transport (10%)</span>
-                                    <span class="font-bold text-white" id="res-transport"></span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/5 pb-3">
-                                    <span class="text-slate-500 font-medium">Medical (5%)</span>
-                                    <span class="font-bold text-white" id="res-medical"></span>
-                                </div>
-                                <div class="flex justify-between border-b border-white/5 pb-3">
-                                    <span class="text-slate-500 font-medium">Output Ratio</span>
-                                    <span class="text-emerald-400 font-black" id="res-ratio"></span>
-                                </div>
-                            </div>
-
-                            <div class="mt-8 flex gap-4">
-                                <div class="flex-1 bg-white/5 p-5 rounded-xl border border-white/10">
-                                    <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">LOP Deduction</p>
-                                    <p class="text-xl font-bold text-rose-400" id="res-lop"></p>
-                                </div>
-                                <div class="flex-1 bg-white/5 p-5 rounded-xl border border-white/10">
-                                    <p class="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Attendance</p>
-                                    <p class="text-xl font-bold text-slate-200" id="res-days-display"></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-white/5 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+                        <tr>
+                            <th class="px-6 py-5">Employee</th>
+                            <th class="px-6 py-5 text-center">Total Days</th>
+                            <th class="px-6 py-5">Days Worked</th>
+                            <th class="px-6 py-5">Attendance %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendance-list" class="divide-y divide-white/5 text-sm">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+                
+                <div id="attendance-empty-state" class="p-12 text-center text-slate-500">
+                    <i data-lucide="users" class="w-12 h-12 mx-auto mb-4 opacity-20"></i>
+                    <p>Select a pay period to start processing attendance.</p>
                 </div>
             </div>
         </section>
@@ -280,13 +231,63 @@
                     if (res.ok) {
                         const data = await res.json();
                         document.getElementById('pr-total-days').value = data.days;
-                        document.getElementById('pr-worked-days').value = data.days; // Default to full
+                        renderAttendanceTable(data.days);
                     }
                 } catch (error) {
                     console.error("Error fetching days:", error);
                 }
             });
         };
+
+        function renderAttendanceTable(totalDays) {
+            const list = document.getElementById('attendance-list');
+            const emptyState = document.getElementById('attendance-empty-state');
+            
+            if (employees.length === 0) {
+                emptyState.innerHTML = '<p class="p-12 text-slate-500">No employees found. Add employees first.</p>';
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            list.innerHTML = employees.map(emp => `
+                <tr class="hover:bg-white/5 transition-all">
+                    <td class="px-6 py-4">
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-200">${emp.name}</span>
+                            <span class="text-[10px] font-mono text-slate-500">ID: #${emp.id}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-center font-mono text-slate-500">${totalDays}</td>
+                    <td class="px-6 py-4">
+                        <input type="number" 
+                               data-emp-id="${emp.id}" 
+                               max="${totalDays}" 
+                               min="0" 
+                               value="${totalDays}" 
+                               oninput="updateAttendanceRatio(this, ${totalDays})"
+                               class="attendance-input bg-slate-950 border border-white/10 rounded-lg px-4 py-2 w-24 text-center text-indigo-400 font-bold focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden w-24">
+                                <div id="ratio-bar-${emp.id}" class="bg-emerald-500 h-full transition-all" style="width: 100%"></div>
+                            </div>
+                            <span id="ratio-text-${emp.id}" class="text-xs font-bold text-emerald-400">100%</span>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function updateAttendanceRatio(input, totalDays) {
+            const empId = input.dataset.empId;
+            const val = parseFloat(input.value) || 0;
+            const ratio = Math.min(100, (val / totalDays * 100)).toFixed(1);
+            
+            document.getElementById(`ratio-bar-${empId}`).style.width = ratio + '%';
+            document.getElementById(`ratio-text-${empId}`).innerText = ratio + '%';
+        }
 
         // Navigation
         function switchTab(tab) {
@@ -574,6 +575,11 @@
                 btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
                 lucide.createIcons();
 
+                const attendance = Array.from(document.querySelectorAll('.attendance-input')).map(input => ({
+                    employee_id: parseInt(input.dataset.empId),
+                    worked_days: parseInt(input.value) || 0
+                }));
+
                 if (isLocalMode) {
                     // Local bulk processing
                     const year = parseInt(monthVal.split('-')[0]);
@@ -584,27 +590,35 @@
                     const history = Storage.getHistory();
                     let count = 0;
 
-                    employees.forEach(emp => {
-                        const exists = history.some(h => h.employee_id === emp.id && h.month_year === month_name);
-                        if (!exists) {
-                            const payable_ratio = 1; // Full attendance for bulk
-                            const record = {
-                                employee_id: emp.id,
-                                employee_name: emp.name,
-                                month_year: month_name,
-                                total_days: total_days,
-                                worked_days: total_days,
-                                basic: Math.round(emp.monthly_salary * 0.40 * 100) / 100,
-                                hra: Math.round(emp.monthly_salary * 0.20 * 100) / 100,
-                                special: Math.round(emp.monthly_salary * 0.25 * 100) / 100,
-                                transport: Math.round(emp.monthly_salary * 0.10 * 100) / 100,
-                                medical: Math.round(emp.monthly_salary * 0.05 * 100) / 100,
-                                net_salary: Math.round(emp.monthly_salary * 100) / 100,
-                                created_at: new Date().toISOString()
-                            };
+                    attendance.forEach(att => {
+                        const emp = employees.find(e => e.id === att.employee_id);
+                        if (!emp) return;
+
+                        // Local mode logic: overwrites or adds
+                        const existingIdx = history.findIndex(h => h.employee_id === emp.id && h.month_year === month_name);
+                        const payable_ratio = att.worked_days / total_days;
+                        
+                        const record = {
+                            employee_id: emp.id,
+                            employee_name: emp.name,
+                            month_year: month_name,
+                            total_days: total_days,
+                            worked_days: att.worked_days,
+                            basic: Math.round(emp.monthly_salary * 0.40 * payable_ratio * 100) / 100,
+                            hra: Math.round(emp.monthly_salary * 0.20 * payable_ratio * 100) / 100,
+                            special: Math.round(emp.monthly_salary * 0.25 * payable_ratio * 100) / 100,
+                            transport: Math.round(emp.monthly_salary * 0.10 * payable_ratio * 100) / 100,
+                            medical: Math.round(emp.monthly_salary * 0.05 * payable_ratio * 100) / 100,
+                            net_salary: Math.round(emp.monthly_salary * payable_ratio * 100) / 100,
+                            created_at: new Date().toISOString()
+                        };
+
+                        if (existingIdx > -1) {
+                            history[existingIdx] = record;
+                        } else {
                             history.unshift(record);
-                            count++;
                         }
+                        count++;
                     });
 
                     Storage.saveHistory(history);
@@ -613,7 +627,10 @@
                     const res = await fetch(`${API_BASE}/payroll/calculate-bulk`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ month_year: monthVal })
+                        body: JSON.stringify({ 
+                            month_year: monthVal,
+                            attendance: attendance
+                        })
                     });
                     
                     if (res.ok) {

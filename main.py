@@ -40,8 +40,13 @@ class PayrollCalculateRequest(BaseModel):
     worked_days: int
     month_year: str
 
+class AttendanceEntry(BaseModel):
+    employee_id: int
+    worked_days: int
+
 class BulkPayrollRequest(BaseModel):
     month_year: str # e.g. "2026-04"
+    attendance: Optional[List[AttendanceEntry]] = None
 
 # --- Database Setup ---
 # Support common production DB variables (Vercel Postgres, Supabase, etc.)
@@ -191,6 +196,9 @@ def calculate_bulk_payroll(req: BulkPayrollRequest, session: Session = Depends(g
         total_days = calendar.monthrange(year, month)[1]
         month_name = f"{calendar.month_name[month]} {year}"
         
+        # Create a mapping for quick lookup if attendance provided
+        attendance_map = {a.employee_id: a.worked_days for a in req.attendance} if req.attendance else {}
+        
         processed_count = 0
         for emp in employees:
             # Check if record already exists for this employee and month
@@ -199,26 +207,36 @@ def calculate_bulk_payroll(req: BulkPayrollRequest, session: Session = Depends(g
                 PayrollRecord.month_year == month_name
             )).first()
             
-            if existing:
-                continue
-
-            worked_days = total_days # Default to full month for bulk
+            # If payroll exists, update it instead of skipping (flexible for corrections)
+            worked_days = attendance_map.get(emp.id, total_days)
             payable_ratio = worked_days / total_days
             
-            record = PayrollRecord(
-                employee_id=emp.id,
-                employee_name=emp.name,
-                month_year=month_name,
-                total_days=total_days,
-                worked_days=worked_days,
-                basic=round(emp.monthly_salary * 0.40 * payable_ratio, 2),
-                hra=round(emp.monthly_salary * 0.20 * payable_ratio, 2),
-                special=round(emp.monthly_salary * 0.25 * payable_ratio, 2),
-                transport=round(emp.monthly_salary * 0.10 * payable_ratio, 2),
-                medical=round(emp.monthly_salary * 0.05 * payable_ratio, 2),
-                net_salary=round(emp.monthly_salary * payable_ratio, 2)
-            )
-            session.add(record)
+            if existing:
+                existing.worked_days = worked_days
+                existing.total_days = total_days
+                existing.basic = round(emp.monthly_salary * 0.40 * payable_ratio, 2)
+                existing.hra = round(emp.monthly_salary * 0.20 * payable_ratio, 2)
+                existing.special = round(emp.monthly_salary * 0.25 * payable_ratio, 2)
+                existing.transport = round(emp.monthly_salary * 0.10 * payable_ratio, 2)
+                existing.medical = round(emp.monthly_salary * 0.05 * payable_ratio, 2)
+                existing.net_salary = round(emp.monthly_salary * payable_ratio, 2)
+                session.add(existing)
+            else:
+                record = PayrollRecord(
+                    employee_id=emp.id,
+                    employee_name=emp.name,
+                    month_year=month_name,
+                    total_days=total_days,
+                    worked_days=worked_days,
+                    basic=round(emp.monthly_salary * 0.40 * payable_ratio, 2),
+                    hra=round(emp.monthly_salary * 0.20 * payable_ratio, 2),
+                    special=round(emp.monthly_salary * 0.25 * payable_ratio, 2),
+                    transport=round(emp.monthly_salary * 0.10 * payable_ratio, 2),
+                    medical=round(emp.monthly_salary * 0.05 * payable_ratio, 2),
+                    net_salary=round(emp.monthly_salary * payable_ratio, 2)
+                )
+                session.add(record)
+            
             processed_count += 1
         
         session.commit()
