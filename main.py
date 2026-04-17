@@ -2,9 +2,14 @@ import datetime
 import logging
 import os
 import calendar
+from typing import List, Optional
 import pandas as pd
 from fpdf import FPDF
+from fastapi import FastAPI, Depends, HTTPException, Query, Body
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+from sqlmodel import SQLModel, Field, create_engine, Session, select
+from pydantic import BaseModel
 import io
 from contextlib import asynccontextmanager
 
@@ -54,8 +59,12 @@ class BulkPayrollRequest(BaseModel):
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///./payroll.db"
-    logger.info("Using local SQLite database")
+    # Use /tmp for SQLite on Vercel as root is read-only
+    if os.environ.get("VERCEL"):
+        DATABASE_URL = "sqlite:////tmp/payroll.db"
+    else:
+        DATABASE_URL = "sqlite:///./payroll.db"
+    logger.info(f"Using SQLite database at: {DATABASE_URL}")
 elif DATABASE_URL.startswith("postgres://"):
     # Fix for Heroku/Vercel Postgres URL naming
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -103,9 +112,21 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    # Use absolute path for Vercel stability
-    path = os.path.join(os.path.dirname(__file__), "index.html")
-    return FileResponse(path)
+    # Robust path finding for Vercel
+    possible_paths = [
+        os.path.join(os.path.dirname(__file__), "index.html"),
+        os.path.join(os.getcwd(), "index.html"),
+        "/var/task/index.html"
+    ]
+    for path in possible_paths:
+        if os.path.exists(path):
+            return FileResponse(path)
+    
+    # Fallback to current directory
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+        
+    raise HTTPException(status_code=404, detail="index.html not found")
 
 # --- Routes: Employees ---
 
