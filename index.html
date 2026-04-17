@@ -76,9 +76,14 @@
 
         <!-- Tab: Payroll -->
         <section id="tab-payroll" class="hidden space-y-6">
-            <div>
-                <h2 class="text-3xl font-bold text-white">Run Payroll</h2>
-                <p class="text-slate-400 text-sm mt-1 font-medium">Calculate monthly payouts based on actual days worked.</p>
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-white">Run Payroll</h2>
+                    <p class="text-slate-400 text-sm mt-1 font-medium">Calculate monthly payouts based on actual days worked.</p>
+                </div>
+                <button onclick="runBulkPayroll()" id="bulk-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95">
+                    <i data-lucide="zap" class="w-4 h-4"></i> Process Every Employee
+                </button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -170,9 +175,14 @@
 
         <!-- Tab: History -->
         <section id="tab-history" class="hidden space-y-6">
-            <div>
-                <h2 class="text-3xl font-bold text-white">Payroll History</h2>
-                <p class="text-slate-400 text-sm mt-1 font-medium">Review past calculations and payout summaries.</p>
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-white">Payroll History</h2>
+                    <p class="text-slate-400 text-sm mt-1 font-medium">Review past calculations and payout summaries.</p>
+                </div>
+                <button onclick="exportExcel()" class="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-white/10 active:scale-95">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export Excel
+                </button>
             </div>
 
             <div class="keka-card overflow-hidden">
@@ -184,6 +194,7 @@
                             <th class="px-6 py-4">Period</th>
                             <th class="px-6 py-4">Efficiency</th>
                             <th class="px-6 py-4">Net Payout</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="history-list" class="divide-y divide-slate-800">
@@ -250,6 +261,7 @@
             saveHistory: (data) => localStorage.setItem('monarch_history', JSON.stringify(data))
         };
 
+        const API_BASE = window.location.origin;
         let employees = [];
         let isLocalMode = false;
 
@@ -257,6 +269,23 @@
         window.onload = async () => {
             await fetchEmployees();
             lucide.createIcons();
+            
+            // Auto-calculate days on month selection
+            document.getElementById('pr-month').addEventListener('change', async (e) => {
+                const monthVal = e.target.value;
+                if (!monthVal) return;
+                
+                try {
+                    const res = await fetch(`${API_BASE}/payroll/days-in-month/${monthVal}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        document.getElementById('pr-total-days').value = data.days;
+                        document.getElementById('pr-worked-days').value = data.days; // Default to full
+                    }
+                } catch (error) {
+                    console.error("Error fetching days:", error);
+                }
+            });
         };
 
         // Navigation
@@ -509,17 +538,108 @@
                 }
                 const list = document.getElementById('history-list');
                 list.innerHTML = history.map(h => `
-                    <tr class="hover:bg-white/5 transition-all">
+                    <tr class="hover:bg-white/5 transition-all group">
                         <td class="px-6 py-4 text-slate-600 text-[10px] font-bold">${new Date(h.created_at).toLocaleString()}</td>
                         <td class="px-6 py-4 font-bold text-slate-200">${h.employee_name}</td>
                         <td class="px-6 py-4 font-mono text-xs uppercase text-white">${h.month_year}</td>
                         <td class="px-6 py-4 font-medium text-slate-500">${h.worked_days}/${h.total_days}</td>
                         <td class="px-6 py-4 font-black text-emerald-400">$${h.net_salary.toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right">
+                            ${!isLocalMode && h.id ? `
+                                <a href="${API_BASE}/payroll/export/pdf/${h.id}" target="_blank" class="p-2 text-slate-500 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all inline-block" title="Download Slip">
+                                    <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                                </a>
+                            ` : `<span class="text-slate-700 text-[10px] uppercase font-bold">Local Only</span>`}
+                        </td>
                     </tr>
                 `).join('');
+                lucide.createIcons();
             } catch (error) {
                 console.error("History fetch error:", error);
             }
+        }
+
+        async function runBulkPayroll() {
+            const monthVal = document.getElementById('pr-month').value;
+            if (!monthVal) {
+                alert("Please select a Pay Period month first.");
+                return;
+            }
+
+            const btn = document.getElementById('bulk-btn');
+            const originalText = btn.innerHTML;
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Processing...`;
+                lucide.createIcons();
+
+                if (isLocalMode) {
+                    // Local bulk processing
+                    const year = parseInt(monthVal.split('-')[0]);
+                    const month = parseInt(monthVal.split('-')[1]);
+                    const total_days = new Date(year, month, 0).getDate();
+                    const month_name = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1));
+                    
+                    const history = Storage.getHistory();
+                    let count = 0;
+
+                    employees.forEach(emp => {
+                        const exists = history.some(h => h.employee_id === emp.id && h.month_year === month_name);
+                        if (!exists) {
+                            const payable_ratio = 1; // Full attendance for bulk
+                            const record = {
+                                employee_id: emp.id,
+                                employee_name: emp.name,
+                                month_year: month_name,
+                                total_days: total_days,
+                                worked_days: total_days,
+                                basic: Math.round(emp.monthly_salary * 0.40 * 100) / 100,
+                                hra: Math.round(emp.monthly_salary * 0.20 * 100) / 100,
+                                special: Math.round(emp.monthly_salary * 0.25 * 100) / 100,
+                                transport: Math.round(emp.monthly_salary * 0.10 * 100) / 100,
+                                medical: Math.round(emp.monthly_salary * 0.05 * 100) / 100,
+                                net_salary: Math.round(emp.monthly_salary * 100) / 100,
+                                created_at: new Date().toISOString()
+                            };
+                            history.unshift(record);
+                            count++;
+                        }
+                    });
+
+                    Storage.saveHistory(history);
+                    alert(`Successfully processed payroll for ${count} employees locally.`);
+                } else {
+                    const res = await fetch(`${API_BASE}/payroll/calculate-bulk`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ month_year: monthVal })
+                    });
+                    
+                    if (res.ok) {
+                        const result = await res.json();
+                        alert(`Successfully processed payroll for ${result.processed} employees for ${result.month}.`);
+                    } else {
+                        throw new Error("Bulk processing failed on server.");
+                    }
+                }
+                switchTab('history');
+            } catch (error) {
+                console.error("Bulk error:", error);
+                alert("Error processing bulk payroll.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                lucide.createIcons();
+            }
+        }
+
+        async function exportExcel() {
+            if (isLocalMode) {
+                alert("Excel Export is only available in Backend Mode. Currently running in Local Storage mode.");
+                return;
+            }
+            window.open(`${API_BASE}/payroll/export/excel`, '_blank');
         }
 
         // Modal Utilities

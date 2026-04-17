@@ -3,3 +3,6 @@ sqlmodel
 uvicorn
 psycopg2-binary
 pydantic
+pandas
+openpyxl
+fpdf

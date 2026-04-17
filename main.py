@@ -1,12 +1,11 @@
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel, Field, create_engine, Session, select
-from typing import List, Optional
-from pydantic import BaseModel
 import datetime
 import logging
 import os
+import calendar
+import pandas as pd
+from fpdf import FPDF
+from fastapi.responses import FileResponse, StreamingResponse
+import io
 from contextlib import asynccontextmanager
 
 # Setup logging
@@ -40,6 +39,9 @@ class PayrollCalculateRequest(BaseModel):
     total_days: int = 30
     worked_days: int
     month_year: str
+
+class BulkPayrollRequest(BaseModel):
+    month_year: str # e.g. "2026-04"
 
 # --- Database Setup ---
 # Support common production DB variables (Vercel Postgres, Supabase, etc.)
@@ -166,6 +168,177 @@ def calculate_payroll(req: PayrollCalculateRequest, session: Session = Depends(g
 @app.get("/payroll/history", response_model=List[PayrollRecord])
 def get_payroll_history(session: Session = Depends(get_session)):
     return session.exec(select(PayrollRecord).order_by(PayrollRecord.created_at.desc())).all()
+
+@app.get("/payroll/days-in-month/{month_year}")
+def get_days_in_month(month_year: str):
+    try:
+        # Expected format: "2026-04"
+        year, month = map(int, month_year.split("-"))
+        days = calendar.monthrange(year, month)[1]
+        return {"days": days}
+    except Exception as e:
+        logger.error(f"Error calculating days: {e}")
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM")
+
+@app.post("/payroll/calculate-bulk")
+def calculate_bulk_payroll(req: BulkPayrollRequest, session: Session = Depends(get_session)):
+    try:
+        employees = session.exec(select(Employee)).all()
+        if not employees:
+            raise HTTPException(status_code=404, detail="No employees found")
+            
+        year, month = map(int, req.month_year.split("-"))
+        total_days = calendar.monthrange(year, month)[1]
+        month_name = f"{calendar.month_name[month]} {year}"
+        
+        processed_count = 0
+        for emp in employees:
+            # Check if record already exists for this employee and month
+            existing = session.exec(select(PayrollRecord).where(
+                PayrollRecord.employee_id == emp.id, 
+                PayrollRecord.month_year == month_name
+            )).first()
+            
+            if existing:
+                continue
+
+            worked_days = total_days # Default to full month for bulk
+            payable_ratio = worked_days / total_days
+            
+            record = PayrollRecord(
+                employee_id=emp.id,
+                employee_name=emp.name,
+                month_year=month_name,
+                total_days=total_days,
+                worked_days=worked_days,
+                basic=round(emp.monthly_salary * 0.40 * payable_ratio, 2),
+                hra=round(emp.monthly_salary * 0.20 * payable_ratio, 2),
+                special=round(emp.monthly_salary * 0.25 * payable_ratio, 2),
+                transport=round(emp.monthly_salary * 0.10 * payable_ratio, 2),
+                medical=round(emp.monthly_salary * 0.05 * payable_ratio, 2),
+                net_salary=round(emp.monthly_salary * payable_ratio, 2)
+            )
+            session.add(record)
+            processed_count += 1
+        
+        session.commit()
+        return {"processed": processed_count, "month": month_name}
+    except Exception as e:
+        logger.error(f"Bulk calculation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/payroll/export/excel")
+def export_payroll_excel(session: Session = Depends(get_session)):
+    records = session.exec(select(PayrollRecord)).all()
+    if not records:
+        raise HTTPException(status_code=404, detail="No payroll records found")
+    
+    data = []
+    for r in records:
+        d = r.dict()
+        d.pop('id')
+        d.pop('created_at')
+        data.append(d)
+        
+    df = pd.DataFrame(data)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Payroll History')
+    
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=payroll_history.xlsx"}
+    )
+
+@app.get("/payroll/export/pdf/{record_id}")
+def export_payroll_pdf(record_id: int, session: Session = Depends(get_session)):
+    record = session.get(PayrollRecord, record_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Background
+    pdf.set_fill_color(10, 10, 10)
+    pdf.rect(0, 0, 210, 297, 'F')
+    
+    # Header
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial", 'B', 24)
+    pdf.cell(0, 20, "MONARCH", ln=True, align='L')
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(0, 5, "Payroll Management System | Confidential", ln=True, align='L')
+    pdf.ln(20)
+    
+    # Pay Slip Title
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, f"PAY SLIP - {record.month_year.upper()}", ln=True, align='C')
+    pdf.ln(10)
+    
+    # Employee Details
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(100, 10, "EMPLOYEE NAME", ln=False)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, record.employee_name, ln=True)
+    
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(100, 10, "EMPLOYEE ID", ln=False)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, f"MEM-{record.employee_id:04d}", ln=True)
+    
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(100, 10, "ATTENDANCE", ln=False)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, f"{record.worked_days} / {record.total_days} Days", ln=True)
+    pdf.ln(15)
+    
+    # Earnings Table
+    pdf.set_fill_color(30, 30, 30)
+    pdf.set_draw_color(50, 50, 50)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(130, 12, "DESCRIPTION", 1, 0, 'L', True)
+    pdf.cell(60, 12, "AMOUNT", 1, 1, 'R', True)
+    
+    pdf.set_font("Arial", '', 11)
+    components = [
+        ("Basic Salary (40%)", record.basic),
+        ("House Rent Allowance (20%)", record.hra),
+        ("Special Allowance (25%)", record.special),
+        ("Transport Allowance (10%)", record.transport),
+        ("Medical Allowance (5%)", record.medical)
+    ]
+    
+    for label, amount in components:
+        pdf.cell(130, 10, label, 1)
+        pdf.cell(60, 10, f"$ {amount:,.2f}", 1, 1, 'R')
+        
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_fill_color(40, 40, 40)
+    pdf.cell(130, 12, "NET PAYABLE AMOUNT", 1, 0, 'L', True)
+    pdf.set_text_color(100, 255, 100)
+    pdf.cell(60, 12, f"$ {record.net_salary:,.2f}", 1, 1, 'R', True)
+    
+    pdf.ln(30)
+    pdf.set_text_color(150, 150, 150)
+    pdf.set_font("Arial", 'I', 8)
+    pdf.cell(0, 10, "This is a computer generated document and does not require a signature.", ln=True, align='C')
+    
+    try:
+        pdf_output = pdf.output(dest='S').encode('latin-1', 'replace')
+    except Exception as e:
+        logger.error(f"PDF Output error: {e}")
+        pdf_output = pdf.output(dest='S').encode('utf-8', 'ignore')
+
+    return StreamingResponse(
+        io.BytesIO(pdf_output),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=payslip_{record.employee_name}_{record.month_year}.pdf"}
+    )
 
 if __name__ == "__main__":
     import uvicorn
