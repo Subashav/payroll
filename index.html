@@ -91,11 +91,11 @@
                     <div class="flex items-center gap-4">
                         <div class="space-y-1">
                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Pay Period</label>
-                            <input type="month" id="pr-month" class="bg-black border border-white/10 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48" required>
+                            <input type="month" id="pr-month" onchange="handleMonthChange(this.value)" oninput="handleMonthChange(this.value)" class="bg-black border border-white/10 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48" required>
                         </div>
                         <div class="space-y-1">
                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Days in Month</label>
-                            <input type="number" id="pr-total-days" readonly class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-slate-400 outline-none w-24" value="30">
+                            <input type="number" id="pr-total-days" readonly class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-slate-400 outline-none w-24" value="0">
                         </div>
                     </div>
                     <button onclick="runBulkPayroll()" id="bulk-btn" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl text-sm font-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-indigo-600/30 active:scale-95">
@@ -220,31 +220,31 @@
         window.onload = async () => {
             await fetchEmployees();
             lucide.createIcons();
-            
-            // Auto-calculate days on month selection
-            document.getElementById('pr-month').addEventListener('change', async (e) => {
-                const monthVal = e.target.value;
-                if (!monthVal) return;
-                
-                const [year, month] = monthVal.split('-').map(Number);
-                const localDays = new Date(year, month, 0).getDate(); // Local fallback calculation
-
-                try {
-                    const res = await fetch(`${API_BASE}/payroll/days-in-month/${monthVal}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        document.getElementById('pr-total-days').value = data.days;
-                        renderAttendanceTable(data.days);
-                    } else {
-                        throw new Error("Backend failed");
-                    }
-                } catch (error) {
-                    console.log("Using local days calculation fallback");
-                    document.getElementById('pr-total-days').value = localDays;
-                    renderAttendanceTable(localDays);
-                }
-            });
         };
+
+        async function handleMonthChange(monthVal) {
+            if (!monthVal) return;
+            
+            // 1. Calculate locally first (Fast & Accurate)
+            const [year, month] = monthVal.split('-').map(Number);
+            const days = new Date(year, month, 0).getDate();
+            
+            document.getElementById('pr-total-days').value = days;
+            renderAttendanceTable(days);
+
+            // 2. Try to sync with backend if available (Silent background check)
+            try {
+                fetch(`${API_BASE}/payroll/days-in-month/${monthVal}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.days) {
+                            document.getElementById('pr-total-days').value = data.days;
+                            // Re-render only if data differs (unlikely)
+                            if (data.days !== days) renderAttendanceTable(data.days);
+                        }
+                    });
+            } catch (e) {}
+        }
 
         function renderAttendanceTable(totalDays) {
             const list = document.getElementById('attendance-list');
