@@ -226,15 +226,22 @@
                 const monthVal = e.target.value;
                 if (!monthVal) return;
                 
+                const [year, month] = monthVal.split('-').map(Number);
+                const localDays = new Date(year, month, 0).getDate(); // Local fallback calculation
+
                 try {
                     const res = await fetch(`${API_BASE}/payroll/days-in-month/${monthVal}`);
                     if (res.ok) {
                         const data = await res.json();
                         document.getElementById('pr-total-days').value = data.days;
                         renderAttendanceTable(data.days);
+                    } else {
+                        throw new Error("Backend failed");
                     }
                 } catch (error) {
-                    console.error("Error fetching days:", error);
+                    console.log("Using local days calculation fallback");
+                    document.getElementById('pr-total-days').value = localDays;
+                    renderAttendanceTable(localDays);
                 }
             });
         };
