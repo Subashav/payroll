@@ -206,6 +206,81 @@
                 </table>
             </div>
         </section>
+        <!-- Modal: Payslip -->
+        <div id="payslipModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div class="px-8 py-6 border-b border-white/10 flex justify-between items-center bg-black">
+                    <img id="payslip-modal-logo" src="" alt="Monarch Softwares" class="h-8 w-auto">
+                    <h3 class="font-black text-white uppercase tracking-widest text-lg">Payslip</h3>
+                    <button onclick="closeModal('payslipModal')" class="text-slate-500 hover:text-white transition-colors"><i data-lucide="x" class="w-6 h-6"></i></button>
+                </div>
+                <div class="p-8 space-y-8 bg-slate-900" id="print-payslip-area">
+                    <div class="flex justify-between items-end border-b border-white/5 pb-6">
+                        <div>
+                            <h4 class="text-2xl font-black text-white" id="ps-emp-name">Name</h4>
+                            <p class="text-sm font-mono text-slate-500 mt-1">ID: #<span id="ps-emp-id">1</span></p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Pay Period</p>
+                            <p class="text-lg font-bold text-indigo-400" id="ps-month-year">Month YYYY</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-8">
+                        <div class="space-y-4">
+                            <h5 class="text-xs font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Earnings</h5>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Basic Pay</span>
+                                <span class="font-mono text-white" id="ps-basic">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">House Rent Allowance</span>
+                                <span class="font-mono text-white" id="ps-hra">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Special Allowance</span>
+                                <span class="font-mono text-white" id="ps-special">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Transport Allowance</span>
+                                <span class="font-mono text-white" id="ps-transport">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Medical Allowance</span>
+                                <span class="font-mono text-white" id="ps-medical">$0</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <h5 class="text-xs font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Attendance</h5>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Total Working Days</span>
+                                <span class="font-mono text-white" id="ps-total-days">0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-400">Days Worked</span>
+                                <span class="font-mono text-white" id="ps-worked-days">0</span>
+                            </div>
+                            <div class="flex justify-between text-sm pt-4 mt-2 border-t border-white/5">
+                                <span class="text-slate-400 font-bold">Payable Efficiency</span>
+                                <span class="font-mono text-emerald-400 font-bold" id="ps-ratio">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-indigo-600/10 border border-indigo-500/20 rounded-xl p-6 flex justify-between items-center">
+                        <span class="text-sm font-black text-indigo-400 uppercase tracking-widest">Net Payable Salary</span>
+                        <span class="text-3xl font-black text-white" id="ps-net-salary">$0</span>
+                    </div>
+                </div>
+                
+                <div class="px-8 py-5 bg-black border-t border-white/10 flex justify-end">
+                    <button onclick="printPayslip()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-indigo-500 shadow-lg shadow-indigo-600/20">
+                        <i data-lucide="printer" class="w-4 h-4 text-white"></i> Print Payslip
+                    </button>
+                </div>
+            </div>
+        </div>
 
     </main>
 
@@ -542,7 +617,11 @@
                     const allowances = h.hra + h.special + h.transport + h.medical;
                     return `
                         <tr class="hover:bg-white/5 transition-all">
-                            <td class="px-6 py-4 font-bold text-slate-200">${h.employee_name}</td>
+                            <td class="px-6 py-4 font-bold text-slate-200 cursor-pointer hover:text-indigo-400" onclick='showPayslipModal(${JSON.stringify(h).replace(/'/g, "&#39;")})'>
+                                <div class="flex items-center gap-2" title="View Full Payslip">
+                                    ${h.employee_name} <i data-lucide="external-link" class="w-3 h-3"></i>
+                                </div>
+                            </td>
                             <td class="px-6 py-4 text-slate-400">$${h.basic.toLocaleString()}</td>
                             <td class="px-6 py-4 text-slate-400">$${allowances.toLocaleString()}</td>
                             <td class="px-6 py-4 font-black text-white">$${h.net_salary.toLocaleString()}</td>
@@ -560,7 +639,7 @@
                 document.getElementById('rep-total-salary').innerText = '$' + totalNet.toLocaleString();
                 document.getElementById('rep-total-members').innerText = filtered.length;
                 document.getElementById('rep-avg-salary').innerText = '$' + (totalNet / filtered.length).toLocaleString(undefined, {maximumFractionDigits: 0});
-                
+                lucide.createIcons();
             } catch (error) {
                 console.error("Report fetch error:", error);
             }
@@ -689,6 +768,70 @@
                 btn.innerHTML = originalText;
                 lucide.createIcons();
             }
+        }
+
+        function showPayslipModal(h) {
+            document.getElementById('ps-emp-name').innerText = h.employee_name;
+            document.getElementById('ps-emp-id').innerText = h.employee_id;
+            document.getElementById('ps-month-year').innerText = h.month_year;
+            
+            document.getElementById('ps-basic').innerText = '$' + h.basic.toLocaleString();
+            document.getElementById('ps-hra').innerText = '$' + h.hra.toLocaleString();
+            document.getElementById('ps-special').innerText = '$' + h.special.toLocaleString();
+            document.getElementById('ps-transport').innerText = '$' + h.transport.toLocaleString();
+            document.getElementById('ps-medical').innerText = '$' + h.medical.toLocaleString();
+            
+            document.getElementById('ps-total-days').innerText = h.total_days;
+            document.getElementById('ps-worked-days').innerText = h.worked_days;
+            
+            const ratio = (h.worked_days / h.total_days * 100).toFixed(1);
+            document.getElementById('ps-ratio').innerText = ratio + '%';
+            
+            document.getElementById('ps-net-salary').innerText = '$' + h.net_salary.toLocaleString();
+
+            const navLogo = document.querySelector('header img');
+            if (navLogo) {
+                document.getElementById('payslip-modal-logo').src = navLogo.src;
+            }
+
+            openModal('payslipModal');
+        }
+
+        function printPayslip() {
+            const printContent = document.getElementById('print-payslip-area').innerHTML;
+            const logoSrc = document.getElementById('payslip-modal-logo').src;
+            
+            const printWindow = window.open('', '', 'height=800,width=800');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Payslip Print</title>
+                    <script src="https://cdn.tailwindcss.com"></scri` + `pt>
+                    <style>
+                        @media print {
+                            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        }
+                    </style>
+                </head>
+                <body class="bg-black text-white p-8">
+                    <div class="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+                        <div class="px-8 py-6 border-b border-white/10 flex justify-between items-center bg-black">
+                            <img src="${logoSrc}" alt="Monarch Softwares" class="h-10 w-auto">
+                            <h3 class="font-black text-white uppercase tracking-widest text-xl">Payslip</h3>
+                        </div>
+                        <div class="p-8 space-y-8">
+                            ${printContent}
+                        </div>
+                    </div>
+                    <script>
+                        setTimeout(() => {
+                            window.print();
+                        }, 1000);
+                    </scri` + `pt>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
         }
 
         async function exportExcel() {
