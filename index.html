@@ -350,7 +350,6 @@
                 isLocalMode = true;
             }
             renderEmployees();
-            populateEmployeeSelect();
         }
 
         function renderEmployees() {
@@ -473,93 +472,7 @@
             openModal('employeeModal');
         }
 
-        // Payroll Calculation
-        function populateEmployeeSelect() {
-            const select = document.getElementById('pr-employee-select');
-            select.innerHTML = '<option value="">Select an employee...</option>' + 
-                employees.map(emp => `<option value="${emp.id}">${emp.name}</option>`).join('');
-        }
 
-        document.getElementById('payroll-form').onsubmit = async (e) => {
-            e.preventDefault();
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            const originalBtnText = submitBtn.innerText;
-
-            try {
-                submitBtn.disabled = true;
-                submitBtn.innerText = 'Calculating...';
-
-                const empId = document.getElementById('pr-employee-select').value;
-                const data = {
-                    employee_id: parseInt(empId),
-                    total_days: parseInt(document.getElementById('pr-total-days').value),
-                    worked_days: parseInt(document.getElementById('pr-worked-days').value),
-                    month_year: document.getElementById('pr-month').value
-                };
-
-                if (isLocalMode) {
-                    const emp = employees.find(e => e.id == data.employee_id);
-                    const payable_ratio = data.worked_days / data.total_days;
-                    const record = {
-                        ...data,
-                        employee_name: emp.name,
-                        basic: Math.round(emp.monthly_salary * 0.40 * payable_ratio * 100) / 100,
-                        hra: Math.round(emp.monthly_salary * 0.20 * payable_ratio * 100) / 100,
-                        special: Math.round(emp.monthly_salary * 0.25 * payable_ratio * 100) / 100,
-                        transport: Math.round(emp.monthly_salary * 0.10 * payable_ratio * 100) / 100,
-                        medical: Math.round(emp.monthly_salary * 0.05 * payable_ratio * 100) / 100,
-                        net_salary: Math.round(emp.monthly_salary * payable_ratio * 100) / 100,
-                        created_at: new Date().toISOString()
-                    };
-                    const history = Storage.getHistory();
-                    history.unshift(record);
-                    Storage.saveHistory(history);
-                    displayResult(record);
-                } else {
-                    const res = await fetch(`${API_BASE}/payroll/calculate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    });
-
-                    if (res.ok) {
-                        const record = await res.json();
-                        displayResult(record);
-                    } else {
-                        const errorData = await res.json();
-                        alert(`Error: ${errorData.detail || 'Failed to calculate'}`);
-                    }
-                }
-            } catch (error) {
-                console.error("Calculation error:", error);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerText = originalBtnText;
-            }
-        };
-
-        function displayResult(res) {
-            document.getElementById('no-result-placeholder').classList.add('hidden');
-            document.getElementById('calculation-result').classList.remove('hidden');
-            
-            document.getElementById('res-month-label').innerText = res.month_year;
-            document.getElementById('res-employee-name').innerText = res.employee_name;
-            document.getElementById('res-net-salary').innerText = '$' + res.net_salary.toLocaleString();
-            
-            document.getElementById('res-basic').innerText = '$' + res.basic.toLocaleString();
-            document.getElementById('res-hra').innerText = '$' + res.hra.toLocaleString();
-            document.getElementById('res-special').innerText = '$' + res.special.toLocaleString();
-            document.getElementById('res-transport').innerText = '$' + res.transport.toLocaleString();
-            document.getElementById('res-medical').innerText = '$' + res.medical.toLocaleString();
-            
-            const ratio = (res.worked_days / res.total_days * 100).toFixed(1);
-            document.getElementById('res-ratio').innerText = ratio + '%';
-            
-            const emp = employees.find(e => e.id === res.employee_id);
-            const lop = emp.monthly_salary - res.net_salary;
-            document.getElementById('res-lop').innerText = '$' + lop.toLocaleString();
-            document.getElementById('res-days-display').innerText = `${res.worked_days} / ${res.total_days}`;
-        }
 
         async function fetchMonthlyReport(monthVal) {
             if (!monthVal) return;
