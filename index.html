@@ -162,7 +162,8 @@
                             <th class="px-6 py-4">Employee</th>
                             <th class="px-6 py-4">Basic</th>
                             <th class="px-6 py-4">Allowances</th>
-                            <th class="px-6 py-4 text-right">Net Payout</th>
+                            <th class="px-6 py-4">Net Payout</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="report-list" class="divide-y divide-white/5">
@@ -544,7 +545,14 @@
                             <td class="px-6 py-4 font-bold text-slate-200">${h.employee_name}</td>
                             <td class="px-6 py-4 text-slate-400">$${h.basic.toLocaleString()}</td>
                             <td class="px-6 py-4 text-slate-400">$${allowances.toLocaleString()}</td>
-                            <td class="px-6 py-4 text-right font-black text-white">$${h.net_salary.toLocaleString()}</td>
+                            <td class="px-6 py-4 font-black text-white">$${h.net_salary.toLocaleString()}</td>
+                            <td class="px-6 py-4 text-right">
+                                ${!isLocalMode && h.id ? `
+                                    <a href="${API_BASE}/payroll/export/pdf/${h.id}" target="_blank" class="p-2 text-slate-500 hover:text-indigo-400 hover:bg-white/5 rounded-xl transition-all inline-block" title="Download Slip">
+                                        <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                                    </a>
+                                ` : `<span class="text-slate-700 text-[10px] uppercase font-bold">Local</span>`}
+                            </td>
                         </tr>
                     `;
                 }).join('');
