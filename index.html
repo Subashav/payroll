@@ -39,6 +39,7 @@
         <div class="flex items-center gap-8 text-sm font-bold text-slate-300">
             <button onclick="switchTab('employees')" id="nav-employees" class="tab-active py-2 hover:text-white transition-colors">Employees</button>
             <button onclick="switchTab('payroll')" id="nav-payroll" class="py-2 hover:text-white transition-colors">Run Payroll</button>
+            <button onclick="switchTab('reports')" id="nav-reports" class="py-2 hover:text-white transition-colors">Monthly Report</button>
             <button onclick="switchTab('history')" id="nav-history" class="py-2 hover:text-white transition-colors">History</button>
         </div>
     </header>
@@ -124,36 +125,57 @@
             </div>
         </section>
 
-        <!-- Tab: History -->
-        <section id="tab-history" class="hidden space-y-6">
-            <div class="flex justify-between items-center">
+        </section>
+        
+        <!-- Tab: Monthly Report -->
+        <section id="tab-reports" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 class="text-3xl font-bold text-white">Payroll History</h2>
-                    <p class="text-slate-400 text-sm mt-1 font-medium">Review past calculations and payout summaries.</p>
+                    <h2 class="text-3xl font-bold text-white">Monthly Report</h2>
+                    <p class="text-slate-400 text-sm mt-1 font-medium">Consolidated view of all payouts for a specific month.</p>
                 </div>
-                <button onclick="exportExcel()" class="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-white/10 active:scale-95">
-                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export Excel
-                </button>
+                <div class="flex items-center gap-3 bg-white/5 p-2 rounded-xl border border-white/10">
+                    <span class="text-[10px] font-black text-slate-500 uppercase px-2">Filter</span>
+                    <input type="month" id="report-month" onchange="fetchMonthlyReport(this.value)" class="bg-black border-0 rounded-lg px-4 py-2 text-sm text-indigo-400 font-bold outline-none focus:ring-0">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="keka-card p-6 border-emerald-500/20 bg-emerald-500/5">
+                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Total Payout</p>
+                    <h4 class="text-3xl font-black text-white" id="rep-total-salary">$0</h4>
+                </div>
+                <div class="keka-card p-6 border-indigo-500/20 bg-indigo-500/5">
+                    <p class="text-[10px] text-indigo-400 font-black uppercase tracking-widest mb-1">Members Paid</p>
+                    <h4 class="text-3xl font-black text-white" id="rep-total-members">0</h4>
+                </div>
+                <div class="keka-card p-6 border-amber-500/20 bg-amber-500/5">
+                    <p class="text-[10px] text-amber-400 font-black uppercase tracking-widest mb-1">Avg. Payout</p>
+                    <h4 class="text-3xl font-black text-white" id="rep-avg-salary">$0</h4>
+                </div>
             </div>
 
             <div class="keka-card overflow-hidden">
                 <table class="w-full text-left border-collapse text-sm">
-                    <thead class="bg-slate-800/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                    <thead class="bg-white/5 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
                         <tr>
-                            <th class="px-6 py-4">Timestamp</th>
-                            <th class="px-6 py-4">Member</th>
-                            <th class="px-6 py-4">Period</th>
-                            <th class="px-6 py-4">Efficiency</th>
-                            <th class="px-6 py-4">Net Payout</th>
-                            <th class="px-6 py-4 text-right">Actions</th>
+                            <th class="px-6 py-4">Employee</th>
+                            <th class="px-6 py-4">Basic</th>
+                            <th class="px-6 py-4">Allowances</th>
+                            <th class="px-6 py-4 text-right">Net Payout</th>
                         </tr>
                     </thead>
-                    <tbody id="history-list" class="divide-y divide-slate-800">
+                    <tbody id="report-list" class="divide-y divide-white/5">
                         <!-- Loaded via JS -->
                     </tbody>
                 </table>
+                <div id="report-empty" class="p-12 text-center text-slate-600">
+                    <p>Select a month to see the detailed report.</p>
+                </div>
             </div>
         </section>
+
+        <!-- Tab: History -->
 
     </main>
 
@@ -298,7 +320,7 @@
 
         // Navigation
         function switchTab(tab) {
-            ['employees', 'payroll', 'history'].forEach(t => {
+            ['employees', 'payroll', 'reports', 'history'].forEach(t => {
                 document.getElementById(`tab-${t}`).classList.add('hidden');
                 document.getElementById(`nav-${t}`).classList.remove('tab-active');
             });
@@ -306,7 +328,13 @@
             document.getElementById(`nav-${tab}`).classList.add('tab-active');
             
             if(tab === 'history') fetchHistory();
-            if(tab === 'payroll') populateEmployeeSelect();
+            if(tab === 'reports') {
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const val = `${now.getFullYear()}-${month}`;
+                document.getElementById('report-month').value = val;
+                fetchMonthlyReport(val);
+            }
         }
 
         // Employee Management
@@ -531,6 +559,60 @@
             const lop = emp.monthly_salary - res.net_salary;
             document.getElementById('res-lop').innerText = '$' + lop.toLocaleString();
             document.getElementById('res-days-display').innerText = `${res.worked_days} / ${res.total_days}`;
+        }
+
+        async function fetchMonthlyReport(monthVal) {
+            if (!monthVal) return;
+            const [year, monthNum] = monthVal.split('-').map(Number);
+            const targetMonthName = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, monthNum - 1));
+
+            try {
+                let history = [];
+                if (isLocalMode) {
+                    history = Storage.getHistory();
+                } else {
+                    const res = await fetch(`${API_BASE}/payroll/history`);
+                    history = await res.json();
+                }
+
+                // Filter for selected month
+                const filtered = history.filter(h => h.month_year === targetMonthName);
+                
+                const list = document.getElementById('report-list');
+                const empty = document.getElementById('report-empty');
+                
+                if (filtered.length === 0) {
+                    list.innerHTML = '';
+                    empty.classList.remove('hidden');
+                    document.getElementById('rep-total-salary').innerText = '$0';
+                    document.getElementById('rep-total-members').innerText = '0';
+                    document.getElementById('rep-avg-salary').innerText = '$0';
+                    return;
+                }
+
+                empty.classList.add('hidden');
+                let totalNet = 0;
+                
+                list.innerHTML = filtered.map(h => {
+                    totalNet += h.net_salary;
+                    const allowances = h.hra + h.special + h.transport + h.medical;
+                    return `
+                        <tr class="hover:bg-white/5 transition-all">
+                            <td class="px-6 py-4 font-bold text-slate-200">${h.employee_name}</td>
+                            <td class="px-6 py-4 text-slate-400">$${h.basic.toLocaleString()}</td>
+                            <td class="px-6 py-4 text-slate-400">$${allowances.toLocaleString()}</td>
+                            <td class="px-6 py-4 text-right font-black text-white">$${h.net_salary.toLocaleString()}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                document.getElementById('rep-total-salary').innerText = '$' + totalNet.toLocaleString();
+                document.getElementById('rep-total-members').innerText = filtered.length;
+                document.getElementById('rep-avg-salary').innerText = '$' + (totalNet / filtered.length).toLocaleString(undefined, {maximumFractionDigits: 0});
+                
+            } catch (error) {
+                console.error("Report fetch error:", error);
+            }
         }
 
         // History
