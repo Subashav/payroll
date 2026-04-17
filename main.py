@@ -49,19 +49,23 @@ class BulkPayrollRequest(BaseModel):
     attendance: Optional[List[AttendanceEntry]] = None
 
 # --- Database Setup ---
-# Support common production DB variables (Vercel Postgres, Supabase, etc.)
-DATABASE_URL = (
-    os.environ.get("POSTGRES_URL") or 
-    os.environ.get("DATABASE_URL") or 
-    os.environ.get("SUPABASE_URL") or 
-    "sqlite:///payroll.db"
-)
+# Database Configuration
+# Support for SQLite (default), MySQL/MariaDB, and PostgreSQL
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Fix for Postgres variants (SQLAlchemy requires postgresql:// instead of postgres://)
-if DATABASE_URL.startswith("postgres://"):
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./payroll.db"
+    logger.info("Using local SQLite database")
+elif DATABASE_URL.startswith("postgres://"):
+    # Fix for Heroku/Vercel Postgres URL naming
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    logger.info("Using PostgreSQL database")
+elif DATABASE_URL.startswith("mysql"):
+    logger.info("Using MySQL database")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+# Standard connection pooling for external DBs
+connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 
 

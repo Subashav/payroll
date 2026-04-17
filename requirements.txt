@@ -6,3 +6,5 @@ pydantic
 pandas
 openpyxl
 fpdf
+pymysql
+cryptography
