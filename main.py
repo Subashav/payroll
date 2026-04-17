@@ -86,7 +86,13 @@ def get_session():
         yield session
 
 # --- FastAPI App ---
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI(title="Monarch Payroll System", lifespan=lifespan)
+
+# Serving static files (like logo.png)
+if os.path.exists("public"):
+    app.mount("/public", StaticFiles(directory="public"), name="public")
 
 app.add_middleware(
     CORSMiddleware,
