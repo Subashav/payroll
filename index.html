@@ -176,6 +176,35 @@
         </section>
 
         <!-- Tab: History -->
+        <section id="tab-history" class="hidden space-y-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-white">Payroll History</h2>
+                    <p class="text-slate-400 text-sm mt-1 font-medium">Review past calculations and payout summaries.</p>
+                </div>
+                <button onclick="exportExcel()" class="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all border border-white/10 active:scale-95">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i> Export Excel
+                </button>
+            </div>
+
+            <div class="keka-card overflow-hidden">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead class="bg-white/5 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
+                        <tr>
+                            <th class="px-6 py-4">Timestamp</th>
+                            <th class="px-6 py-4">Member</th>
+                            <th class="px-6 py-4">Period</th>
+                            <th class="px-6 py-4">Efficiency</th>
+                            <th class="px-6 py-4">Net Payout</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-list" class="divide-y divide-white/5">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
 
     </main>
 
@@ -241,6 +270,7 @@
         // App Initialization
         window.onload = async () => {
             await fetchEmployees();
+            switchTab('employees');
             lucide.createIcons();
         };
 
